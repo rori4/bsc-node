@@ -2681,7 +2681,9 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 	// this makes sure resources are cleaned up.
 	defer cancel()
 
-	vmconfig := vm.Config{}
+	vmconfig := vm.Config{
+		NoBaseFee: true,
+	}
 
 	// Setup the gas pool (also for unmetered requests)
 	// and apply the message.
