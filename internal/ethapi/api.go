@@ -2660,6 +2660,8 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 	if args.GasLimit != nil {
 		gasLimit = *args.GasLimit
 	}
+	var baseFee *big.Int = big.NewInt(0)
+
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     blockNumber,
@@ -2667,6 +2669,7 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 		Time:       timestamp,
 		Difficulty: difficulty,
 		Coinbase:   coinbase,
+		BaseFee:   baseFee,
 	}
 
 	// Setup context so it may be cancelled the call has completed
