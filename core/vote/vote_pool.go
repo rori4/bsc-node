@@ -4,7 +4,7 @@ import (
 	"container/heap"
 	"sync"
 
-	mapset "github.com/deckarep/golang-set"
+	mapset "github.com/deckarep/golang-set/v2"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/ethereum/go-ethereum/params"
 )
 
 const (
@@ -44,14 +43,13 @@ type VoteBox struct {
 }
 
 type VotePool struct {
-	chain       *core.BlockChain
-	chainconfig *params.ChainConfig
-	mu          sync.RWMutex
+	chain *core.BlockChain
+	mu    sync.RWMutex
 
 	votesFeed event.Feed
 	scope     event.SubscriptionScope
 
-	receivedVotes mapset.Set
+	receivedVotes mapset.Set[common.Hash]
 
 	curVotes    map[common.Hash]*VoteBox
 	futureVotes map[common.Hash]*VoteBox
@@ -69,11 +67,10 @@ type VotePool struct {
 
 type votesPriorityQueue []*types.VoteData
 
-func NewVotePool(chainconfig *params.ChainConfig, chain *core.BlockChain, engine consensus.PoSA) *VotePool {
+func NewVotePool(chain *core.BlockChain, engine consensus.PoSA) *VotePool {
 	votePool := &VotePool{
 		chain:         chain,
-		chainconfig:   chainconfig,
-		receivedVotes: mapset.NewSet(),
+		receivedVotes: mapset.NewSet[common.Hash](),
 		curVotes:      make(map[common.Hash]*VoteBox),
 		futureVotes:   make(map[common.Hash]*VoteBox),
 		curVotesPq:    &votesPriorityQueue{},
@@ -92,6 +89,8 @@ func NewVotePool(chainconfig *params.ChainConfig, chain *core.BlockChain, engine
 
 // loop is the vote pool's main even loop, waiting for and reacting to outside blockchain events and votes channel event.
 func (pool *VotePool) loop() {
+	defer pool.chainHeadSub.Unsubscribe()
+
 	for {
 		select {
 		// Handle ChainHeadEvent.
@@ -118,7 +117,7 @@ func (pool *VotePool) PutVote(vote *types.VoteEnvelope) {
 func (pool *VotePool) putIntoVotePool(vote *types.VoteEnvelope) bool {
 	targetNumber := vote.Data.TargetNumber
 	targetHash := vote.Data.TargetHash
-	header := pool.chain.CurrentBlock().Header()
+	header := pool.chain.CurrentBlock()
 	headNumber := header.Number.Uint64()
 
 	// Make sure in the range (currentHeight-lowerLimitOfVoteBlockNumber, currentHeight+upperLimitOfVoteBlockNumber].

@@ -3,8 +3,7 @@ package bsc
 import (
 	"time"
 
-	mapset "github.com/deckarep/golang-set"
-
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -26,7 +25,7 @@ const (
 	receiveRateLimitPerSecond = 10
 
 	// the time span of one period
-	secondsPerPeriod = float64(10)
+	secondsPerPeriod = float64(30)
 )
 
 // max is a helper function which returns the larger of the two given integers.
@@ -133,6 +132,9 @@ func (p *Peer) AsyncSendVotes(votes []*types.VoteEnvelope) {
 // Otherwise, check whether the number of received votes extra (secondsPerPeriod * receiveRateLimitPerSecond)
 func (p *Peer) IsOverLimitAfterReceiving() bool {
 	if timeInterval := time.Since(p.periodBegin).Seconds(); timeInterval >= secondsPerPeriod {
+		if p.periodCounter > uint(secondsPerPeriod*receiveRateLimitPerSecond) {
+			p.Log().Debug("sending votes too much", "secondsPerPeriod", secondsPerPeriod, "count ", p.periodCounter)
+		}
 		p.periodBegin = time.Now()
 		p.periodCounter = 0
 		return false
@@ -161,7 +163,7 @@ func (p *Peer) broadcastVotes() {
 
 // knownCache is a cache for known hashes.
 type knownCache struct {
-	hashes mapset.Set
+	hashes mapset.Set[common.Hash]
 	max    int
 }
 
@@ -169,7 +171,7 @@ type knownCache struct {
 func newKnownCache(max int) *knownCache {
 	return &knownCache{
 		max:    max,
-		hashes: mapset.NewSet(),
+		hashes: mapset.NewSet[common.Hash](),
 	}
 }
 
